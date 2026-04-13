@@ -1,10 +1,10 @@
-[# Talent Match — Innovating the Recruitment System Using Artificial Intelligence and Machine Learning
+# Talent Match — Interview Regulator AI System
 
 ## Introduction
 
 Large institutions like DRDO receive thousands of applicants for their technical interviews. These are mostly boardroom interviews where candidates are manually matched with interviewers based on the interviewers' expertise and the candidates' experience, education, and job role — all to ensure that the right person is hired. A single mis-hire can cause significant loss to an organisation. However, this manual matching process is time-consuming, cost-inefficient, and highly prone to human error.
 
-**Talent Match** solves this problem by leveraging advanced AI-driven candidate-to-interviewer mapping using:
+**Interview Regulator / Talent Match** solves this problem by leveraging advanced AI-driven candidate-to-interviewer mapping using:
 
 - **Semantic search** and **NLP models** for best-in-class contextual and relevance matching
 - **Large Language Models (LLMs)** — which have seen significant recent advancements — that now surpass traditional NLP models and even human judgment in precision, while operating at machine speed; this directly addresses the twin challenges of time and accuracy
@@ -55,186 +55,85 @@ Candidate profiles are validated using AI to detect and prevent **fraudulent sub
 
 | Tool | Version | Notes |
 |---|---|---|
-| **Node.js** | `v20+` | LTS recommended |
+| **Node.js** | `v18+` | LTS recommended |
 | **npm** | `v9+` | Bundled with Node.js |
 | **Git** | Any recent version | For cloning the repo |
-| **Docker** *(optional)* | `v24+` | Required only for container-based runs |
+| **Docker** *(optional)* | `v20+` | Required only for container builds |
 
-### Step 1 — Clone the Repository
+### Local Setup (Without Docker)
 
-```bash
-git clone https://github.com/abhinav761/Interview-Regulator-Frontend-main.git
-cd Interview-Regulator-Frontend-main
-```
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/abhinav761/Interview-Regulator-main.git
+   cd Interview-Regulator-main
+   ```
 
-### Step 2 — Install Dependencies
+2. **Install Dependencies**
+   ```bash
+   npm ci
+   ```
 
-```bash
-npm ci --legacy-peer-deps
-```
-
-> `--legacy-peer-deps` is required to resolve peer dependency conflicts between some Radix UI packages.
-
-### Step 3 — Start the Development Server
-
-```bash
-npm run dev
-```
-
-The app will be available at **http://localhost:5173** (Vite default).
-
-### Other Useful Scripts
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start local dev server with HMR |
-| `npm run build` | Production build → outputs to `dist/` |
-| `npm run build:dev` | Dev-mode build (un-minified) |
-| `npm run lint` | Run ESLint checks |
-| `npm run preview` | Locally preview the production build |
+3. **Start the Development Server**
+   ```bash
+   npm run dev
+   ```
+   The app will be available at **http://localhost:5173**.
 
 ---
 
-## 🐳 Running with Docker (Local)
+## 🐳 Running with Docker
 
-### Option A — Docker Compose *(recommended)*
+This project comes fully containerized with a production-ready, multi-stage Docker build utilizing **Node** and **Nginx**.
+
+### Using Docker Compose (Recommended)
+
+To run the application locally on **Port 3000** without installing any Node modules:
 
 ```bash
-# Build and start the container
-docker compose up --build -d
-
-# App runs at http://localhost:80
+# Build and start the container in the background
+docker-compose up -d --build
 
 # Stop the container
-docker compose down
+docker-compose down
 ```
+Access the application at **http://localhost:3000**.
 
-### Option B — Docker CLI
+### Using Docker CLI Manually
 
 ```bash
-# Build the image
-docker build -t interview-regulator-frontend:latest .
+# 1. Build the production image
+docker build -t interview-regulator-app:latest .
 
-# Run the container
-docker run -d \
-  --name interview-regulator-app \
-  --restart unless-stopped \
-  -p 80:80 \
-  interview-regulator-frontend:latest
+# 2. Run the container locally
+docker run -p 3000:80 -d --name interview-regulator-web interview-regulator-app:latest
 ```
-
-The container uses a **multi-stage build**:
-- **Stage 1 (builder)** — Node 20 Alpine: installs deps and runs `npm run build`
-- **Stage 2 (production)** — Nginx 1.27 Alpine: serves the `dist/` folder with a hardened nginx config
-
-A health check endpoint is available at **http://localhost/health** → returns `200 OK`.
 
 ---
 
-## 🚀 CI/CD Pipeline — GitHub Actions
+## 🚀 Automated CI/CD Pipelines
 
-The pipeline is defined in [`.github/workflows/docker-ci-cd.yml`](.github/workflows/docker-ci-cd.yml) and runs automatically.
+This repository is configured with two professional deployment pipelines that handle build generation and isolated testing.
 
-### Pipeline Overview
+### 1. GitHub Actions (Cloud)
+Located in `.github/workflows/ci.yml`. This pipeline triggers automatically on all pushes and pulls requests to the `main` branch. It securely builds the Docker container utilizing GitHub's infrastructure and `buildx` caching to ensure code integrity.
 
-```
-Push / PR → [ Job 1: Lint & Build ] → [ Job 2: Docker Build & Push ] → [ Job 3: Deploy to Production ]
-```
-
-| Job | Trigger | What it does |
-|---|---|---|
-| **Lint & Build** | Every push & PR to `main` / `develop` | Installs deps, runs ESLint, runs `npm run build`, uploads `dist/` as artifact |
-| **Docker Build & Push** | Push to `main` or `develop` only | Builds multi-stage Docker image, pushes to **GitHub Container Registry (GHCR)** |
-| **Deploy to Production** | Push to `main` only | SSHs into the production server, pulls the latest image, restarts the container |
-
-### Image Tags Strategy
-
-| Tag | When applied |
-|---|---|
-| `:latest` | Push to `main` branch |
-| `:develop` | Push to `develop` branch |
-| `:sha-<commit>` | Every push (short commit SHA) |
-| `:<branch-name>` | Every push |
-
-### Required GitHub Secrets & Variables
-
-Set these in **GitHub → Settings → Secrets and Variables → Actions**:
-
-| Secret / Variable | Type | Description |
-|---|---|---|
-| `DEPLOY_HOST` | Secret | IP address or hostname of your production server |
-| `DEPLOY_USER` | Secret | SSH username on the production server |
-| `DEPLOY_SSH_KEY` | Secret | Private SSH key (the server must have the matching public key in `~/.ssh/authorized_keys`) |
-| `DEPLOY_PORT` | Secret *(optional)* | SSH port — defaults to `22` if not set |
-| `PRODUCTION_URL` | Variable | Public URL of the deployed app (shown in GitHub environments UI) |
-| `GITHUB_TOKEN` | Auto-provided | Used to authenticate with GHCR — no manual setup needed |
-
-### Setting Up the Production Server
-
-On your production server, ensure Docker is installed and the deploy user has Docker permissions:
-
-```bash
-# Install Docker (Ubuntu/Debian)
-sudo apt update && sudo apt install -y docker.io
-sudo systemctl enable --now docker
-
-# Add the deploy user to the docker group
-sudo usermod -aG docker <DEPLOY_USER>
-
-# Allow GHCR images to be pulled (login once manually)
-echo <GITHUB_TOKEN> | docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
-```
-
-### Trigger the Pipeline
-
-```bash
-# Trigger CI (lint + build + docker push) — push to develop
-git push origin develop
-
-# Trigger full pipeline including production deploy — merge/push to main
-git push origin main
-# or: open a PR → main and merge it
-```
-
-### Pulling & Running the Published Image Manually
-
-```bash
-# Pull the latest production image from GHCR
-docker pull ghcr.io/abhinav761/interview-regulator-frontend-main:latest
-
-# Run it
-docker run -d \
-  --name interview-regulator-app \
-  --restart unless-stopped \
-  -p 80:80 \
-  ghcr.io/abhinav761/interview-regulator-frontend-main:latest
-```
+### 2. Jenkins (Local)
+Located in the `Jenkinsfile` at the root of the project. It handles cloning the repository and running local batch commands to orchestrate building the image and tearing down/deploying the new Nginx container seamlessly onto Port `3000`.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-Interview-Regulator-Frontend-Main/
-├── .github/
-│   └── workflows/
-│       └── docker-ci-cd.yml   # GitHub Actions CI/CD pipeline
-├── src/                       # React + TypeScript source code
-├── public/                    # Static assets
-├── dist/                      # Production build output (git-ignored)
-├── Dockerfile                 # Multi-stage Docker build
-├── docker-compose.yml         # Local container orchestration
-├── nginx.conf                 # Production Nginx configuration
-├── vite.config.ts             # Vite bundler config
-├── tailwind.config.ts         # Tailwind CSS config
-└── package.json               # Scripts and dependencies
+Interview-Regulator-main/
+├── .github/workflows/         
+│   └── ci.yml                 # GitHub Actions Pipeline
+├── src/                       # React Frontend + TypeScript Source Code
+├── public/                    # Static Application Assets
+├── Dockerfile                 # Multi-stage Nginx Image Build
+├── docker-compose.yml         # Container Orchestration
+├── Jenkinsfile                # Local Deploy Pipeline
+├── package.json               # Project Dependencies & Vite Scripts
+├── tailwind.config.ts         # Tailwind Styling Defaults
+└── vite.config.ts             # Vite Bundler System Configuration
 ```
-
----
-
-## 🔗 Links
-
-- **Live Project**: https://lovable.dev/projects/019da328-a341-4e2b-8a30-c494bee4a04e
-- **GitHub Repository**: https://github.com/abhinav761/Interview-Regulator-Frontend-main
-- **Issues / Bug Reports**: https://github.com/abhinav761/Interview-Regulator-Frontend-main/issues
-](https://interview-regulator-backend-140431125163.europe-west1.run.app)
